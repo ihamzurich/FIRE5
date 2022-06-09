@@ -1,0 +1,730 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" attributeFormDefault="unqualified" elementFormDefault="qualified"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:schemaLocation="http://www.fire.ch/fire xsd_fire_v5121.xsd">
+  
+  <xs:annotation>
+    <xs:documentation xml:lang="de">
+
+        # ******************************************************************************************************************************************************* # 
+        # Licence:                                                                                                                                                #
+        # FIRE5 © 2022 by Institute of Primary Care, University of Zurich and University Hospital Zurich, Zurich, Switzerland is licensed under CC BY 4.0.        #
+        #                                                                                                                                                         #
+        # To view a copy of this license, visit:                                                                                                                  #
+        # http://creativecommons.org/licenses/by/4.0/”                                                                                                            #  
+        # ******************************************************************************************************************************************************* #
+      
+
+        # ----------------------------------------------------------------------------------------------------------------------------------------------------------      
+        # Ziel der Version 5: alle Informationen zum Patienten, die hausärztlich und klinisch relevant sind.
+        # ----------------------------------------------------------------------------------------------------------------------------------------------------------	
+
+        # File Encoding:     utf8
+        # Filename:          [praxissoftware]_d{n}_d{6}_yyyymmdd
+                             d{n}: n-stellige Praxis-ID mit führenden Nullen: n=max(Zeichen Praxis ID)+2
+                             d{6}: 6-stelliger Zähler 
+                             yyyymmdd: Datum des Exports
+                             Beispiele: 
+                             abcd_00151_000001_20200811.xml
+                             abcd_00xa1f3fg_000123_20211101.xml
+        # Stammdatenexport   Stammdaten (Patientenexport) muss in einem Erstexport geliefert werden (insertDate und changeDate offen lassen) 
+	                     Grund: Der Exporter exportiert nur Änderungen. Deshalb ist ein Stammdatenexport notwendig um zu vermeiden, dass Diagnose etc. ohne
+			     Patientendaten vorliegen.
+
+        # ----------------------------------------------------------------------------------------------------------------------------------------------------------			     
+        # Version
+        # ----------------------------------------------------------------------------------------------------------------------------------------------------------	                
+        ## 5.200     01.06.2022    Initiale version ccby4
+
+        
+                                                        
+        # ----------------------------------------------------------------------------------------------------------------------------------------------------------
+        #
+        # Spezifikation
+        #
+	# ----------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+        # ----------------------------------------------------------------------------------------------------------------------------------------------------------                                                	
+        # Kommentare
+        # ----------------------------------------------------------------------------------------------------------------------------------------------------------
+        
+        ## Entität	    Entspricht einer Tabelle in der DB oder einem xml-Element.			
+        ## Feld	            Variablenbezeichnung			
+        ## Datentyp	    Bezeichnung lehnt sich an xml-schema. Grundsätzlich ist der Datentyp offen, damit alle Daten im Original exportiert werden.			
+        ## Trigger	    Trigger pro Entität sollte jeweils das insertDateTime oder changeDateTime sein, also das Datum und die Uhrzeit, bei welchem eine Variable
+                            in dieser Entität erfasst oder verändert wird (diese unabhängig vom effektiven Datum, also wann diese Messung stattgefunden hat).
+        ## Patienten Software ID
+                            ID, die vom Patienten Managemgent System (PMS) definiert wird.
+        ## Praxis ID	    ID der Praxis.
+        ## Medikation	    Auch exportieren wenn keinen GTIN Pharmacode vorhanden.			
+        ## ID	            Alle Identifikationskolonnen als String definiert.			
+        ## Datum	    Alle Datum/Zeit als DateTime. Wenn keine Zeitangaben vorhanden sondern nur Datum, konvertieren nach: 'YYYY-MM-DD 00:00:00'.			
+
+        # ----------------------------------------------------------------------------------------------------------------------------------------------------------                                                	        
+        # Header            Interpretation
+        ----------------------------------------------------------------------------------------------------------------------------------------------------------
+        
+        ## patID	    Aus Datenschutzgründen muss die Patienten Software ID gehasht werden: 
+         	            sha256(concat(Praxis ID,Patienten Software ID))
+        ## insertDateTime   Datum und Uhrzeit der Erstellung des Records. Trigger für Export.
+        ## changeDateTime   Datum und Uhrzeit der Änderung des Records. Wenn keine Änderung stattfindet, dann ist changeDateTime=insertDateTime. Trigger für Export.
+        ## id	            Datenbank-ID des Records für die Identifikation. Zwingend bei consultation, vital, pdList, labor, medi, evt. auch bei patient, patInfo, patEvent. 
+           	            Wird benötigt, wenn Updates auf denselben record stattfinden (deshalb muss es identifiziert werden können).
+	                    Bei consultation und pdList kann eine JOIN Beziehung vorhanden sein, je nach Geschäftsmodel.
+       
+
+        # ----------------------------------------------------------------------------------------------------------------------------------------------------------                                                	
+        # exporter
+        # ----------------------------------------------------------------------------------------------------------------------------------------------------------                                                	
+           *version              Version des FIRE-Exporters.
+                                 Version des FIRE-Exporters definiert von Praxissoftware-Firma.
+	   *versionXSD           Version des FIRE-XSD-Files.
+                                 Format: d.ddd. Beispiele: 5.123, 5.200.
+           *comment              Kommentar.
+                  
+        # ----------------------------------------------------------------------------------------------------------------------------------------------------------                  
+        # practice
+        # ----------------------------------------------------------------------------------------------------------------------------------------------------------	
+           *practiceID           Identifikation Praxis. 
+                                 Als Praxisidentifikation dient die Kundennummer der Praxis in der Praxissoftware-Datenbank. Grund: Lookup vermeiden.
+           *pmsName              Name der Praxissoftware (PMS: medical practice management software).
+           *practiceName         Name der Praxis.
+	                         Wenn kein Praxisname vorhanden, leerlassen.
+           *address              Adresse der Praxis.
+                                 Strasse, Nr, PLZ, Ort. Serialisiert (nicht CRLF). Beispiel: Pestalozzistrasse, 24, 8091, Zürich
+           *deleteInd            Indikator für "Löschen" eines Eintrages.
+
+        # ----------------------------------------------------------------------------------------------------------------------------------------------------------           
+        # patient
+        # ----------------------------------------------------------------------------------------------------------------------------------------------------------	
+           *patID                Gehashte Patienten-ID.
+                                 siehe Blatt "felder_1".
+           *insertDateTime       Datum und Uhrzeit der Erstellung des Records.
+                                 siehe Blatt "felder_1"
+           *changeDateTime       Datum und Uhrzeit der Änderung des Records.
+                                 siehe Blatt "felder_1"
+           *id                   Datenbank-ID.
+                                 siehe Blatt "felder_1"
+           *sex                  Geschlecht.
+	                         Originalwert, jedoch wenn es kodiert ist (Bsp: 0,1), brauchen wir das Lookup/Label (Mann, Frau).
+           *dobYear              Geburtsjahr (Date Of Birth Year). Konversion aus dem Geburtstag.
+                                 Aus Gründen des Datenschutzes soll nur das Geburtsjahr geliefert werden. Das ist einer der wenigen Daten, die konvertiert
+                                 werden sollen.
+           *deathYear            Todesjahr. Konversion aus dem Todestag.
+                                 Aus Gründen des Datenschutzes soll nur das Todesjahr geliefert werden. Das ist einer der wenigen Daten, die konvertiert werden sollen.                                 
+	   *patIDOrig            Originale Patienten ID.
+				 Gefüllt nur für Testzwecken/Validierung oder wenn in ferner Zukunft die Umstände es erlauben. Bleibt in der produktiven Umgebung leer.
+           *deleteInd            Indikator für "Löschen" eines Eintrages.
+                                 
+        # ----------------------------------------------------------------------------------------------------------------------------------------------------------				 
+        # patInfo
+        # ----------------------------------------------------------------------------------------------------------------------------------------------------------				 
+           *patID                Gehashte Patienten-ID.
+                                 siehe Blatt "felder_1".
+           *insertDateTime       Datum und Uhrzeit der Erstellung des Records.
+                                 siehe Blatt "felder_1"
+           *changeDateTime       Datum und Uhrzeit der Änderung des Records.
+                                 siehe Blatt "felder_1"
+           *id                   Datenbank-ID.
+                                 siehe Blatt "felder_1"
+           *category		 Bezeichnung der Rubrik. Grundsätzlich: patInfo ist ein generischer Behälter für Felder/Themen, die in anderen Entitäten nicht aufgeführt sind.
+                                 Zum Beispiel:
+                                 - Blutgruppe
+                                 - Rhesusfaktor
+                                 - Rauchen resp. Nikotin
+                                 - Alkohol
+                                 - Medikamente
+                                 - Allergien
+                                 - Unverträglichkeit / Intoleranz
+                                 - Ernährung
+                                 - Risiko
+                                 - EKG
+                                 - etc.
+           *description	         Spezifizierung der category.
+                                 Zum Beispiel:
+                                 - Blutgruppe: A / B / AB / 0
+                                 - Rhesusfaktor: neg. / pos.
+                                 - Rauchen resp. Nikotin: ja / nein
+                                 - Alkohol: ja / nein 
+                                 - Medikament: Penicillin
+                                 - Allergien: Pollen
+                                 - Unverträglichkeit / Intoleranz:  Eisentabletten
+                                 - Risiko: Leistungssportler
+                                 - EKG: ja / nein
+                                 - etc.
+           *descriptionAdd	 Zusätzliche Informationen.
+                                 Zum Beispiel:
+                                 - Blutgruppe: falls Zusatzinformationen vorhanden
+                                 - Rhesusfaktor: falls Zusatzinformationen vorhanden
+                                 - Rauchen resp. Nikotin: 10 py
+                                 - Alkohol: 1 L Bier / Tag
+                                 - Medikament: Hautausschlag
+                                 - Allergien:  Schweregrad schwerwiegend
+                                 - Unverträglichkeit / Intoleranz:  Schweregrad mittel
+                                 - Risiko: ja
+                                 - EKG: Zusatzinformationen wie "Sinusrhythmus mit einer Frequenz von 80/min, Linkstyp, PQ-Zeit nicht verlängert, QRS nicht
+                                   verbreitert, keine signifikanten ST-Streckenveränderungen, keine Erregungsrückbildungsstörungen"
+                                 - etc.
+           *startDateTime	 Startdatum oder Datum der Untersuchung.
+           *stopDateTime	 Stoppdatum.
+                                 Z.B. beim Rauchen.
+           *deleteInd            Indikator für "Löschen" eines Eintrages.
+           
+        # ----------------------------------------------------------------------------------------------------------------------------------------------------------	   
+        # patEvent
+        # ----------------------------------------------------------------------------------------------------------------------------------------------------------	
+           *patID                Gehashte Patienten-ID.
+                                 siehe Blatt "felder_1".
+           *insertDateTime       Datum und Uhrzeit der Erstellung des Records.
+                                 siehe Blatt "felder_1"
+           *changeDateTime       Datum und Uhrzeit der Änderung des Records.
+                                 siehe Blatt "felder_1"
+           *id                   Datenbank-ID.
+                                 siehe Blatt "felder_1"
+           *eventDateTime        Datum und Uhrzeit des Ereignisses.
+           *event                Bezeichnung des Ereignisses.
+                                 Bsp.: Hospitalisation, Notfall, Hausbesuch etc.
+           *eventDescription     Grund des Ereignisses.
+           *deleteInd            Indikator für "Löschen" eines Eintrages.
+           
+        # ----------------------------------------------------------------------------------------------------------------------------------------------------------            
+        ## consultation
+        # ----------------------------------------------------------------------------------------------------------------------------------------------------------	
+           *patID                Gehashte Patienten-ID.
+                                 siehe Blatt "felder_1".
+           *insertDateTime       Datum und Uhrzeit der Erstellung des Records.
+                                 siehe Blatt "felder_1"
+           *changeDateTime       Datum und Uhrzeit der Änderung des Records.
+                                 siehe Blatt "felder_1"
+           *id                   Datenbank-ID.
+                                 siehe Blatt "felder_1"
+           *consDateTime         Verlaufeintragsdatum = Konsultationsdatum.
+	                         Datum der Konsultation. Entspricht wohl meistens dem insertDateTime.
+           *consType             Konsultationstyp. Je nach Praxissoftware Code oder Freitext.
+                                 Z.B. Notfall in Praxis, Hausbesuch, Telefonberatung, normale Konsulation, etc.                      
+           *pdListID	         1:n Verknüpfung zu pdList.
+                                 Verknüpfung zur Problem- und Diagnoseliste.
+           *insurer              Name des Versicherers.
+           *insurerID            GLN des Versicherers.
+           *lawType              Art der Versicherung, welche die Kosten übernimmt.
+                                 Z.B. KVG, UV, IV, MV, etc.
+           *insuranceModel       Versicherungsmodell.
+                                 Z.B. HMO, Hausarztmodell, Telemedizin, freie Arztwahl, etc.
+           *glnResponsible       GLN des verantwortlichen Arztes.
+           *glnExecutor          GLN des ausführenden Arztes, falls von glnResponsible abweicht (z.B. Assistentarzt).
+           *deleteInd            Indikator für "Löschen" eines Eintrages.
+                                 
+        # ----------------------------------------------------------------------------------------------------------------------------------------------------------            
+        # vital
+        # ----------------------------------------------------------------------------------------------------------------------------------------------------------	
+           *patID                Gehashte Patienten-ID.
+                                 siehe Blatt "felder_1".
+           *insertDateTime       Datum und Uhrzeit der Erstellung des Records.
+                                 siehe Blatt "felder_1"
+           *changeDateTime       Datum und Uhrzeit der Änderung des Records.
+                                 siehe Blatt "felder_1"
+           *id                   Datenbank-ID.
+                                 siehe Blatt "felder_1"
+           *vitalDateTime        Datum und Uhrzeit der Messung.
+	                         Entspricht wohl meistens dem insertDateTime.
+           *bpType               Art der Blutdruck-Messung.
+                                 In der Praxis, zuhause (Heimmessung), 24h, etc.
+           *bpSyst               Blutdruck systolisch (mmHg).
+           *bpDiast              Blutdruck diastolisch (mmHg).
+           *bpLeftRight          Blutdruck-Seite der Messung.
+                                 Links oder rechts.
+           *bpPosition           Blutdruck-Position.
+                                 Z.B. liegend, sitzend, stehend, nach dem Aufstehen, etc.
+           *bpComment            Kommentar zu Blutdruck.
+                                 Z.B. Lokalität Blutdruckmessung: Oberarm.           
+           *bpExecutor           Wer den Blutdruck/Puls gemessen hat.
+                                 Z.B. Arzt mit GLN, MPA.
+           *pulse                Puls (pro Minute).
+           *pulseQuality         Pulsqualität.
+                                 Z.B. regularis, irregularis.
+           *pulseComment         Kommentar zu Puls.
+           *weight               Gewicht (kg).
+           *wComment             Kommentar zu Gewicht.
+           *height               Grösse (cm).
+           *hComment             Kommentar zu Grösse.
+                                 Z.B. ohne Schuhe.
+           *whExecutor           Wer das Gewicht/Grösse gemessen hat.
+                                 Z.B. Arzt mit GLN, MPA.
+           *bmi         	 BMI (kg/m2).
+           *waistCircum          Bauchumfang Taille (cm).
+                                 https://en.wikipedia.org/wiki/Waist-to-height_ratio.
+           *hipCircum            Hüftumfang (cm).
+                                 https://en.wikipedia.org/wiki/Waist%E2%80%93hip_ratio.
+           *headCircum           Kopfumfang (cm).
+           *bodyTemp             Körpertemperatur (°C).
+           *oxygenSaturation     Sauerstoffsättigung (%).
+           *bodyFat              Körperfettanteil (%).
+           *boneAge              Knochenalter (Jahre).
+           *gln                  GLN des Arztes, der die Messung durchgeführt hat oder veranlasst hat.
+           *deleteInd            Indikator für "Löschen" eines Eintrages.
+           
+        # ----------------------------------------------------------------------------------------------------------------------------------------------------------            
+        # pdList  ([p]roblem/[d]iagnose)
+        # ----------------------------------------------------------------------------------------------------------------------------------------------------------	
+           *patID                Gehashte Patienten-ID.
+                                 siehe Blatt "felder_1".
+           *insertDateTime       Datum und Uhrzeit der Erstellung des Records.
+                                 siehe Blatt "felder_1"
+           *changeDateTime       Datum und Uhrzeit der Änderung des Records.
+                                 siehe Blatt "felder_1"
+           *id                   Datenbank-ID.
+                                 siehe Blatt "felder_1"
+           *pdID                 Entspricht id der Hauptdiagnose, falls pdType Neben- oder Differentialdiagnose ist.
+           *pdStartDateTime      Datum und Uhrzeit der Problem-/Diagnoseerstellung.
+                                 Entspricht wohl meistens dem insertDateTime.
+           *pdStopDateTime	 Ende der Gültigkeit des Problems/Diagnose.
+           *classification	 Definiert, welches Kodierungssystem verwendet wurde.
+                                 Z.B. ICPC-2, ICD-10, Tessiner Code, etc. Falls nicht codiert, leer.
+           *classificationCode	 Code des Kodierungssystems.
+                                 Z.B. "K85" (ICPC-2), "I10" (ICD-10), "A4" (Tessiner Code). Falls nicht codiert, leer.
+           *classificationDesc	 Bezeichnung Problem/Diagnose gemäss Kodierungssystem.
+                                 Z.B. "Erhöhter Blutdruck" (ICPC-2), "Essentielle (primäre) Hypertonie" (ICD-10), "Hypertonie" (Tessiner Code). Falls nicht codiert, leer.
+           *description	         Bezeichnung, welche final im Feld Problem/Diagnose steht.
+           *descriptionAdd	 Zusatzinformationen zu Problem/Diagnose.
+                                 Z.B. Spezifizierung zur Diagnose.
+           *comment 	         Kommentare/Notizen zu Problem/Diagnose.
+           *pdType               Ob es ein Problem oder eine Diagnose ist.
+                                 Bei Diagnose: z.B. Diagnose, Dauerdiagnose, Verdachtsdiagnose, Nebendiagnose, Differentialdiagnose etc.
+           *active               Indikator oder Bezeichnung, welches definiert, ob das Problem/Diagnose aktiv ist.
+                                 - aktiv: das Problem/Diagnose ist gültig. 
+                                 - inaktiv: wenn Patient nicht mehr dieses Problem/Diagnose hat und geheilt/gesund ist.
+                                 Inaktiv: wenn Patient nicht mehr diese Diagnose hat und geheilt/gesund ist.
+           *gln                  GLN des Arztes, der das Problem/Diagnose erhoben hat.
+           *consID               Verknüpfung zur consultation (consultation - pdList: 1:n).
+           *deleteInd            Indikator für "Löschen" eines Eintrages.
+           
+        # ----------------------------------------------------------------------------------------------------------------------------------------------------------				 
+        # labor
+        # ----------------------------------------------------------------------------------------------------------------------------------------------------------	
+           *patID                Gehashte Patienten-ID.
+                                 Siehe Blatt "felder_1".
+           *insertDateTime       Datum und Uhrzeit der Erstellung des Records.
+                                 Siehe Blatt "felder_1"
+           *changeDateTime       Datum und Uhrzeit der Änderung des Records.
+                                 Siehe Blatt "felder_1"
+           *id                   Datenbank-ID.
+                                 Siehe Blatt "felder_1"
+           *labDateTime          Datum und Uhrzeit des Ersteintrages Labor in PMS.
+                                 Entspricht vermutlich insertDateTime.
+           *sampleDateTime       Datum und Uhrzeit der Probeentnahme.
+                                 Entspricht vermutlich insertDateTime.
+           *measureDateTime      Datum und Uhrzeit der Messung.
+           *labLabel             Bezeichnung des klinischen Parameters wie es in der eKG-Software angezeigt wird (also so wie es der Arzt sieht!!).
+	                         Bisher erhielten wir kryptische und nicht eindeutig zuweisbare Laborbezeichnungen (siehe Blatt screenhots ). Laborparameter
+                                 muss eindeutig
+                                 definiert sein (z.B. Kreatinin im Blut vs. Kreatinin in Serum).
+           *labelDevice          Bezeichung, die vom Messgerät geliefert wird.
+           *labValue             Originaler Wert.
+           *unitOriginal         Messeinheit original.
+           *unitUCUM             Messeinheit UCUM.
+           *refMin               Minimaler festgelegter Normwert.
+                                 Manuell oder von Messgerät geliefert.
+           *refMax               Maximaler festgelegter Normwert.
+                                 Manuell oder von Messgerät geliefert.
+           *abnormalFlag         Indikator für labValue ausserhalb Normwert.
+           *labInOut	         Indikator für interne oder externe Messung.
+                                 Mapping-Tabelle zur Verfügung stellen falls vorhanden.
+           *labInfo              Bsp.: nüchtern, postprandial, etc.
+                                 Falls mehr Felder mit Informationen vorhanden sind: konkatenieren mit ";". Mapping-Tabelle zur Verfügung stellen falls vorhanden."
+           *deviceManufacturer   Name des Geräteherstellers.
+           *deviceName           Name des Messgerätes.
+                                 Meistens nur geliefert, wenn in Praxis und nicht in externem Labor gemessen.
+           *labNameExt           Name des medizinischen Labors.
+                                 Wenn in externem Labor gemessen.
+           *loinc                LOINC-Code.
+           *gln                  GLN des Arztes, der die Messung veranlasst hat.
+           *deleteInd            Indikator für "Löschen" eines Eintrages.
+           
+        # ----------------------------------------------------------------------------------------------------------------------------------------------------------				 
+        # medi
+        # ----------------------------------------------------------------------------------------------------------------------------------------------------------	
+           *patID                Gehashte Patienten-ID.
+                                 Siehe Blatt "felder_1".
+           *insertDateTime       Datum und Uhrzeit der Erstellung des Records.
+                                 Siehe Blatt "felder_1"
+           *changeDateTime       Datum und Uhrzeit der Änderung des Records.
+                                 Siehe Blatt "felder_1"
+           *id                   Datenbank-ID.
+                                 Siehe Blatt "felder_1"
+           *startDateTime        Datum der Ersterfassung des Medikaments = Startdatum (erstes).
+                                 Vermutlich insertDateTime.
+           *mediChangeDateTime   Datum der Änderung des Medikaments.
+                                 Vermutlich changeDateTime.
+           *stopDateTime         Stoppdatum des Medikaments.
+           *stopReason           Grund für den Stopp der Medikamentenabgabe.
+           *active               Ob Medikament aktuell eingenommen wird.
+           *mediLabel            Name des Medikaments aus Auswahlliste oder Freitext.
+                                 Z.B. "ASPIRIN CARDIO Filmtabl 100 mg 90 Stk"
+           *dose                 Dosis/Wirkstärke.
+                                 Z.B. 200.
+           *doseUnit             Dosis-Einheit.
+                                 Z.B. mcg, mg, etc.
+           *medicationForm	 Darreichungsform.
+                                 Z.B. Tablette, Kapsel, Crème, etc.
+           *packageQuantity      Menge in Packung.
+                                 Z.B. 10.
+           *packageQuantityUnit	 Einheit der Packung.
+                                 Z.B.: Stück, ml, g, etc.
+           *doseMo               Dosierung morgens.
+           *doseMi               Dosierung mittags.
+           *doseAb               Dosierung abends.
+           *doseNa               Dosierung nachts.
+           
+           *mediFrequency	 Zusatzinformation zur Frequenz der Einahme.
+                                 Z.B. stündlich, jeden 2. Tag, 1x/Woche, etc.
+           *mediApplication	 Freitext zur Medikamenten-Anwendung.
+           *mediComment 	 Freitext zum Medikament allgemein.
+                                 Z.B. Spezialdosierung, Notizen, etc.
+           *acute	 	 Akut-/Bedarfsmedikament.
+           *repetitive	 	 Dauermedikament.
+                                 Medikament wird repetierend abgegeben.
+           *reserve	         Reservemedikament.
+           *packages	         Anzahl abgegebener Packungen.
+           *dispensation         Art der Abgabe.
+                                 Z.B. rezeptiert, selbstdispensiert, Fremdmedikation, etc.
+           *intolerance          Ob Unverträglichkeit des Medikaments.
+           *indication           Indikation für Medikamenteneinnahme.
+           *prescriptionComment  Bemerkungen auf Rezept (für den Ausdruck).
+           *gtin                 Def: 13-stelliger Code (neuer Medi-Code).
+           *pharmaCode           Def: 7-stelliger code (alter Medi-Code).
+           *atc                  Anatomical Therapeutic Codes ATC.
+                                 Z.B. A01AD05 (7-Stellig) http://en.wikipedia.org/wiki/Anatomical_Therapeutic_Chemical_Classification_System.
+
+           *mediInfo		 Freitextangabe zum Medikament (Wirkstoff, Artikelname, etc.).
+                                 Wenn zum Beispiel kein GTIN/Pharmacode existiert.
+           *manufacturer         Hersteller des Medikaments.
+           *gln                  GLN des Arztes, der das Medikament verschrieben hat.
+           *deleteInd            Indikator für "Löschen" eines Eintrages.
+           
+        # ----------------------------------------------------------------------------------------------------------------------------------------------------------				 
+        # vaccine
+        # ----------------------------------------------------------------------------------------------------------------------------------------------------------	
+           *patID                Gehashte Patienten-ID.
+                                 Siehe Blatt "felder_1".
+           *insertDateTime       Datum und Uhrzeit der Erstellung des Records.
+                                 Siehe Blatt "felder_1"
+           *changeDateTime       Datum und Uhrzeit der Änderung des Records.
+                                 Siehe Blatt "felder_1"
+           *id                   Datenbank-ID.
+                                 Siehe Blatt "felder_1"
+           *vaccDateTime         Datum und Uhrzeit der Impfung.
+                                 Entspricht vermutlich insertDateTime.
+           *vaccLabel	         Name des Impfstoffes.
+                                 z.B. "ENCEPUR N Inj Susp"
+           *vaccDisease	         Bezeichnung der Krankheit.
+                                 Z.B. FSME
+           *vaccLot	         LOT-Nummer.
+           *vaccComment	         Bemerkungen zu der Impfung.
+                                 Falls mehr Felder mit Informationen vorhanden sind: konkatenieren mit ";".           
+           *gtin                 Def: 13-stelliger Code (neuer Medi-Code).
+           *pharmaCode	         Def: 7-stelliger code (alter Medi-Code).
+           *atc	                 Anatomical Therapeutic Codes ATC.
+                                 Z.B. A01AD05 (7-Stellig)
+                                 http://en.wikipedia.org/wiki/Anatomical_Therapeutic_Chemical_Classification_System.
+           *executor             Wer hat die Impfung verabreicht.
+                                 Z.B. MPA, Arzt mit GLN, Initialen, etc.
+           *deleteInd            Indikator für "Löschen" eines Eintrages.
+           
+        # ----------------------------------------------------------------------------------------------------------------------------------------------------------				 
+        # sickLeave
+        # ----------------------------------------------------------------------------------------------------------------------------------------------------------	
+           *patID                Gehashte Patienten-ID.
+                                 Siehe Blatt "felder_1".
+           *insertDateTime       Datum und Uhrzeit der Erstellung des Records.
+                                 Siehe Blatt "felder_1"
+           *changeDateTime       Datum und Uhrzeit der Änderung des Records.
+                                 Siehe Blatt "felder_1"
+           *id                   Datenbank-ID.
+                                 Siehe Blatt "felder_1"
+           *startDateTime	 Startdatum Arbeitsunfähigkeit.
+           *stopDateTime	 Stoppdatum Arbeitsunfähigkeit.
+           *sickLeaveType	 Art der Arbeitsunfähigkeit.
+                                 Z.B. Krankheit, Unfall, Mutterschaft, etc.
+           *duration	         Dauer in Tagen.
+           *disabilityRate	 Arbeitsunfähigkeit in %.
+           *capabilityRate	 Leistungsfähigkeit in %.
+           *reason               Ausstellungsgrund.
+                                 Z.B. aufgrund meiner Untersuchung oder nach Angaben des Patienten.
+           *deleteInd            Indikator für "Löschen" eines Eintrages.
+
+           
+    </xs:documentation>
+  </xs:annotation>
+
+  <!-- BEGIN XSD -->
+
+  <xs:element name="fire" type="fireType"/>
+  
+  <xs:complexType name="exporterType">
+    <xs:sequence>
+      <xs:element name="version"               type="xs:string"            minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="versionXSD"            type="xs:string"            minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="comment"               type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+    </xs:sequence>                                                                                             
+  </xs:complexType>
+  
+  <xs:complexType name="practiceType">
+    <xs:sequence>
+      <xs:element name="practiceID"            type="xs:string"            minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="pmsName"               type="xs:string"            minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="practiceName"          type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="address"               type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="deleteInd"             type="xs:string"            minOccurs="0"  maxOccurs="1"                 />      
+    </xs:sequence>
+  </xs:complexType>                                                                                            
+                                                                                                                          
+  <xs:complexType name="patientType">                                                                          
+    <xs:sequence>                                                                                              
+      <xs:element name="patID"                 type="xs:string"             minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="insertDateTime"        type="xs:dateTime"           minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="changeDateTime"        type="xs:dateTime"           minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="id"                    type="xs:string"             minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="sex"                   type="xs:string"             minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="dobYear"               type="xs:unsignedShort"      minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="deathYear"             type="xs:unsignedShort"      minOccurs="0"  maxOccurs="1"                 />      
+      <xs:element name="patIDOrig"             type="xs:string"             minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="deleteInd"             type="xs:string"             minOccurs="0"  maxOccurs="1"                 />            
+    </xs:sequence>
+  </xs:complexType>
+  
+  <xs:complexType name="patInfoType">
+    <xs:sequence>
+      <xs:element name="patID"                 type="xs:string"             minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="insertDateTime"        type="xs:dateTime"           minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="changeDateTime"        type="xs:dateTime"           minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="id"                    type="xs:string"             minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="category"              type="xs:string"             minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="description"           type="xs:string"             minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="descriptionAdd"        type="xs:string"             minOccurs="0"  maxOccurs="1"                 />      
+      <xs:element name="startDateTime"         type="xs:dateTime"           minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="stopDateTime"          type="xs:dateTime"           minOccurs="0"  maxOccurs="1"                 />      
+      <xs:element name="deleteInd"             type="xs:string"             minOccurs="0"  maxOccurs="1"                 />            
+    </xs:sequence>
+  </xs:complexType>   
+  
+  <xs:complexType name="patEventType">
+    <xs:sequence>
+      <xs:element name="patID"                 type="xs:string"            minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="insertDateTime"        type="xs:dateTime"          minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="changeDateTime"        type="xs:dateTime"          minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="id"                    type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="eventDateTime"         type="xs:dateTime"          minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="event"                 type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="eventDescription"      type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="deleteInd"             type="xs:string"            minOccurs="0"  maxOccurs="1"                 />            
+    </xs:sequence>                                                        
+  </xs:complexType>                                                       
+                                                                                                                      
+  <xs:complexType name="consultationType">                                
+    <xs:sequence>                                                         
+      <xs:element name="patID"                 type="xs:string"            minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="insertDateTime"        type="xs:dateTime"          minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="changeDateTime"        type="xs:dateTime"          minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="id"                    type="xs:string"            minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="consDateTime"          type="xs:dateTime"          minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="consType"              type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="pdListID"              type="xs:string"            minOccurs="0"  maxOccurs="unbounded"         />      
+      <xs:element name="insurer"               type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="insurerID"             type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="lawType"	       type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="insuranceModel"	       type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="glnResponsible"	       type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="glnExecutor"	       type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="deleteInd"             type="xs:string"            minOccurs="0"  maxOccurs="1"                 />            
+    </xs:sequence>
+  </xs:complexType>  
+
+  
+  <xs:complexType name="vitalType">
+    <xs:sequence>
+      <xs:element name="patID"                 type="xs:string"            minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="insertDateTime"        type="xs:dateTime"          minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="changeDateTime"        type="xs:dateTime"          minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="id"                    type="xs:string"            minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="vitalDateTime"         type="xs:dateTime"          minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="bpType"                type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="bpSyst"                type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="bpDiast"               type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="bpLeftRight"           type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="bpPosition"            type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="bpComment"             type="xs:string"            minOccurs="0"  maxOccurs="1"                 />      
+      <xs:element name="bpExecutor"            type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="pulse"                 type="xs:string"            minOccurs="0"  maxOccurs="1"                 />      
+      <xs:element name="pulseQuality"          type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="pulseComment"          type="xs:string"            minOccurs="0"  maxOccurs="1"                 />      
+      <xs:element name="weight"                type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="wComment"              type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="height"                type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="hComment"              type="xs:string"            minOccurs="0"  maxOccurs="1"                 />      
+      <xs:element name="whExecutor"            type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="bmi"                   type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="waistCircum"           type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="hipCircum"             type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="headCircum"            type="xs:string"            minOccurs="0"  maxOccurs="1"                 />      
+      <xs:element name="bodyTemp"              type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="oxygenSaturation"      type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="bodyFat"               type="xs:string"            minOccurs="0"  maxOccurs="1"                 />      
+      <xs:element name="boneAge"               type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="gln"                   type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="deleteInd"             type="xs:string"            minOccurs="0"  maxOccurs="1"                 />            
+    </xs:sequence>
+  </xs:complexType>   
+  
+  
+  <xs:complexType name="pdListType">
+    <xs:sequence>
+      <xs:element name="patID"                 type="xs:string"            minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="insertDateTime"        type="xs:dateTime"          minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="changeDateTime"        type="xs:dateTime"          minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="id"                    type="xs:string"            minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="pdID"                  type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="pdStartDateTime"       type="xs:dateTime"          minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="pdStopDateTime"        type="xs:dateTime"          minOccurs="0"  maxOccurs="1"                 />      
+      <xs:element name="classification"        type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="classificationCode"    type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="classificationDesc"    type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="description"           type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="descriptionAdd"        type="xs:string"            minOccurs="0"  maxOccurs="1"                 />      
+      <xs:element name="comment"               type="xs:string"            minOccurs="0"  maxOccurs="1"                 />            
+      <xs:element name="pdType"                type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="active"                type="xs:string"            minOccurs="0"  maxOccurs="1"                 />      
+      <xs:element name="gln"                   type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="consID"                type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="deleteInd"             type="xs:string"            minOccurs="0"  maxOccurs="1"                 />            
+    </xs:sequence>
+  </xs:complexType> 
+ 
+
+  <xs:complexType name="laborType">
+    <xs:sequence>
+      <xs:element name="patID"                 type="xs:string"            minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="insertDateTime"        type="xs:dateTime"          minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="changeDateTime"        type="xs:dateTime"          minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="id"                    type="xs:string"            minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="labDateTime"           type="xs:dateTime"          minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="sampleDateTime"        type="xs:dateTime"          minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="measureDateTime"       type="xs:dateTime"          minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="labLabel"              type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="labelDevice"           type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="labValue"              type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="unitOriginal"          type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="unitUCUM"              type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="refMin"                type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="refMax"                type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="abnormalFlag"          type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="labInOut"              type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="labInfo"               type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="deviceManufacturer"    type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="deviceName"            type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="labNameExt"            type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="loinc"                 type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="gln"                   type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="deleteInd"             type="xs:string"            minOccurs="0"  maxOccurs="1"                 />            
+    </xs:sequence>
+  </xs:complexType>  
+
+  <xs:complexType name="mediType">
+    <xs:sequence>
+      <xs:element name="patID"                 type="xs:string"            minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="insertDateTime"        type="xs:dateTime"          minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="changeDateTime"        type="xs:dateTime"          minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="id"                    type="xs:string"            minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="startDateTime"         type="xs:dateTime"          minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="mediChangeDateTime"    type="xs:dateTime"          minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="stopDateTime"          type="xs:dateTime"          minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="stopReason"            type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="active"                type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="mediLabel"             type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="dose"                  type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="doseUnit"              type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="medicationForm"        type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="packageQuantity"       type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="packageQuantityUnit"   type="xs:string"            minOccurs="0"  maxOccurs="1"                 />      
+      <xs:element name="doseMo"                type="xs:string"            minOccurs="0"  maxOccurs="1"                 /> 
+      <xs:element name="doseMi"                type="xs:string"            minOccurs="0"  maxOccurs="1"                 /> 
+      <xs:element name="doseAb"                type="xs:string"            minOccurs="0"  maxOccurs="1"                 /> 
+      <xs:element name="doseNa"                type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="mediFrequency"         type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="mediApplication"       type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="mediComment"           type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="acute"                 type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="repetitive"            type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="reserve"               type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="packages"              type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="dispensation"          type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="intolerance"           type="xs:string"            minOccurs="0"  maxOccurs="1"                 />      
+      <xs:element name="indication"            type="xs:string"            minOccurs="0"  maxOccurs="1"                 /> 
+      <xs:element name="prescriptionComment"   type="xs:string"            minOccurs="0"  maxOccurs="1"                 /> 
+      <xs:element name="gtin"                  type="xs:string"            minOccurs="0"  maxOccurs="1"                 /> 
+      <xs:element name="pharmaCode"            type="xs:string"            minOccurs="0"  maxOccurs="1"                 /> 
+      <xs:element name="atc"                   type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="mediInfo"              type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="manufacturer"          type="xs:string"            minOccurs="0"  maxOccurs="1"                 /> 
+      <xs:element name="gln"                   type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="deleteInd"             type="xs:string"            minOccurs="0"  maxOccurs="1"                 />            
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="vaccineType">
+    <xs:sequence>
+      <xs:element name="patID"                 type="xs:string"            minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="insertDateTime"        type="xs:dateTime"          minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="changeDateTime"        type="xs:dateTime"          minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="id"                    type="xs:string"            minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="vaccDateTime"          type="xs:dateTime"          minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="vaccLabel"             type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="vaccDisease"           type="xs:string"            minOccurs="0"  maxOccurs="1"                 />      
+      <xs:element name="vaccLot"               type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="vaccComment"           type="xs:string"            minOccurs="0"  maxOccurs="1"                 />      
+      <xs:element name="gtin"                  type="xs:string"            minOccurs="0"  maxOccurs="1"                 />       
+      <xs:element name="pharmaCode"            type="xs:string"            minOccurs="0"  maxOccurs="1"                 />  
+      <xs:element name="atc"                   type="xs:string"            minOccurs="0"  maxOccurs="1"                 />              
+      <xs:element name="executor"              type="xs:string"            minOccurs="0"  maxOccurs="1"                 />         
+      <xs:element name="deleteInd"             type="xs:string"            minOccurs="0"  maxOccurs="1"                 />            
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="sickLeaveType">
+    <xs:sequence>
+      <xs:element name="patID"                 type="xs:string"            minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="insertDateTime"        type="xs:dateTime"          minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="changeDateTime"        type="xs:dateTime"          minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="id"                    type="xs:string"            minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="startDateTime"         type="xs:dateTime"          minOccurs="0"  maxOccurs="1"                 />    
+      <xs:element name="stopDateTime"          type="xs:dateTime"          minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="sickLeaveType"         type="xs:string"            minOccurs="0"  maxOccurs="1"                 />           
+      <xs:element name="duration"              type="xs:string"            minOccurs="0"  maxOccurs="1"                 />      
+      <xs:element name="disabilityRate"        type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="capabilityRate"        type="xs:string"            minOccurs="0"  maxOccurs="1"                 />           
+      <xs:element name="reason"                type="xs:string"            minOccurs="0"  maxOccurs="1"                 />
+      <xs:element name="deleteInd"             type="xs:string"            minOccurs="0"  maxOccurs="1"                 />            
+    </xs:sequence>
+  </xs:complexType>
+      
+  <xs:complexType name="fireType">
+    <xs:sequence>
+      <xs:element name="exporter"              type="exporterType"         minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="practice"              type="practiceType"         minOccurs="1"  maxOccurs="1"                 />
+      <xs:element name="patient"               type="patientType"          minOccurs="0"  maxOccurs="unbounded"         />
+      <xs:element name="patInfo"               type="patInfoType"          minOccurs="0"  maxOccurs="unbounded"         />
+      <xs:element name="patEvent"              type="patEventType"         minOccurs="0"  maxOccurs="unbounded"         />
+      <xs:element name="consultation"          type="consultationType"     minOccurs="0"  maxOccurs="unbounded"         />
+      <xs:element name="vital"                 type="vitalType"            minOccurs="0"  maxOccurs="unbounded"         />
+      <xs:element name="pdList"                type="pdListType"           minOccurs="0"  maxOccurs="unbounded"         />
+      <xs:element name="labor"                 type="laborType"            minOccurs="0"  maxOccurs="unbounded"         />
+      <xs:element name="medi"                  type="mediType"             minOccurs="0"  maxOccurs="unbounded"         />
+      <xs:element name="vaccine"               type="vaccineType"          minOccurs="0"  maxOccurs="unbounded"         />
+      <xs:element name="sickLeave"             type="sickLeaveType"        minOccurs="0"  maxOccurs="unbounded"         />
+      <xs:element name="deleteInd"             type="xs:string"            minOccurs="0"  maxOccurs="1"                 />            
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>
+
+
+  <!-- END XSD -->
